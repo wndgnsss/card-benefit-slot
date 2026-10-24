@@ -1,0 +1,378 @@
+<title>혜택 슬롯 추천기</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: 왼쪽 입력 패널(카드 뒷면 같은 단색 블록) + 오른쪽 추천 슬롯 목록. 좁으면 한 열. */
+:root{
+  --bg:#f3f4f8; --panel:#ffffff; --ink:#1b2033; --muted:#5d6479; --line:#dfe2ec;
+  --accent:#2f43b8; --accent-soft:#e6e9fa; --gold:#a8730f; --gold-soft:#f8efd9;
+  --warn:#b4401f; --warn-soft:#fbe7e0; --ok:#1f7a4d; --ok-soft:#e1f3e9;
+  --f-body:"IBM Plex Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12141c; --panel:#1b1e29; --ink:#e7e9f2; --muted:#9aa1b7; --line:#2c3142;
+  --accent:#8c9cff; --accent-soft:#252b4d; --gold:#e3b257; --gold-soft:#3a2f17;
+  --warn:#f08a6a; --warn-soft:#3d2219; --ok:#6fd3a0; --ok-soft:#173527; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12141c; --panel:#1b1e29; --ink:#e7e9f2; --muted:#9aa1b7; --line:#2c3142;
+  --accent:#8c9cff; --accent-soft:#252b4d; --gold:#e3b257; --gold-soft:#3a2f17;
+  --warn:#f08a6a; --warn-soft:#3d2219; --ok:#6fd3a0; --ok-soft:#173527; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6}
+.wrap{max-width:1120px;margin:0 auto;padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:22px}
+h1{font-size:1.65rem;margin:0;text-wrap:balance;letter-spacing:-.01em}
+h2{font-size:1.02rem;margin:0}
+.lede{color:var(--muted);margin:4px 0 0;max-width:68ch}
+.eyebrow{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-family:var(--f-mono)}
+.flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.flow div{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 12px;font-size:.85rem}
+.flow b{display:block;font-family:var(--f-mono);font-size:.72rem;color:var(--accent);font-weight:500}
+.grid{display:grid;grid-template-columns:340px minmax(0,1fr);gap:22px;align-items:start}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.field{display:flex;flex-direction:column;gap:6px}
+label,.lab{font-size:.82rem;color:var(--muted);font-weight:500}
+select{font:inherit;font-size:.9rem;padding:7px 8px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink);width:100%}
+select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.rankrow{display:grid;grid-template-columns:22px minmax(0,1fr) minmax(0,96px);gap:6px;align-items:center}
+.rankrow span{font-family:var(--f-mono);font-size:.8rem;color:var(--accent);text-align:center}
+.seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{flex:1;font:inherit;font-size:.84rem;padding:7px 6px;border:0;background:transparent;color:var(--muted);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+:root[data-theme="dark"] .seg button[aria-pressed="true"]{color:#12141c}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .seg button[aria-pressed="true"]{color:#12141c}}
+.note{font-size:.78rem;color:var(--muted);margin:0}
+.sample{font-size:.74rem;font-family:var(--f-mono);color:var(--gold);background:var(--gold-soft);padding:2px 6px;border-radius:4px;align-self:flex-start}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{font:inherit;font-size:.86rem;padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.tab[aria-selected="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:700}
+.status{display:flex;gap:8px;flex-wrap:wrap;font-size:.8rem}
+.pill{padding:3px 9px;border-radius:999px;background:var(--bg);border:1px solid var(--line);font-family:var(--f-mono)}
+.pill.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.pill.ok{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+.slots{display:flex;flex-direction:column;gap:8px}
+.slot{display:grid;grid-template-columns:36px minmax(0,1fr) 120px 128px;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.slot .no{font-family:var(--f-mono);font-size:1.1rem;color:var(--accent);text-align:center}
+.slot .nm{font-weight:700}
+.slot .grp{font-size:.72rem;color:var(--muted);margin-left:6px;font-weight:400}
+.slot .why{font-size:.8rem;color:var(--muted);margin-top:2px}
+.bar{height:6px;background:var(--bg);border-radius:3px;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--accent)}
+.won{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right;font-size:.9rem}
+.won small{display:block;font-size:.7rem;color:var(--muted)}
+.act{display:flex;gap:6px;justify-content:flex-end}
+.act button{font:inherit;font-size:.78rem;padding:5px 9px;border-radius:5px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.act button.yes{border-color:var(--ok);color:var(--ok)}
+.act button.no{color:var(--muted)}
+.slot.taken{border-color:var(--ok);background:var(--ok-soft)}
+.sum{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:.86rem;padding:10px 14px;border-radius:8px;background:var(--gold-soft);color:var(--ink)}
+.sum b{font-family:var(--f-mono);color:var(--gold)}
+.logwrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.8rem;min-width:520px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-weight:500}
+td.m{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.empty{color:var(--muted);font-size:.82rem;padding:8px 0}
+.dgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.drow{display:grid;grid-template-columns:minmax(0,1fr) 90px 44px;gap:8px;align-items:center;font-size:.84rem;padding:3px 0}
+#dCombo .drow{grid-template-columns:minmax(0,1fr) 44px}
+.drow b{font-family:var(--f-mono);text-align:right;font-weight:500}
+.drow .bar{margin-top:0}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.metrics div{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px 12px}
+.metrics small{display:block;font-size:.74rem;color:var(--muted)}
+.metrics b{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:1.02rem}
+@media (max-width:560px){.dgrid{grid-template-columns:1fr}}
+footer{font-size:.76rem;color:var(--muted);border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:4px}
+@media (max-width:860px){.grid{grid-template-columns:1fr}.flow{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.slot{grid-template-columns:28px minmax(0,1fr);row-gap:8px}.slot .won{grid-column:2;text-align:left}.slot .act{grid-column:2;justify-content:flex-start}}
+@media (prefers-reduced-motion:no-preference){.bar i{transition:width .25s ease}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">BAF670 중간보고서 · 기획 프로토타입</div>
+    <h1>혜택 슬롯 추천기</h1>
+    <p class="lede">고객에게는 소비 행태에 맞는 혜택 영역 K개를 추천하고, 카드사에는 그 추천을 모아 상품 설계의 입력값으로 보여 줍니다. 고객 쪽은 인기 기반, 규칙 기반(카드 비교 플랫폼의 카테고리 필터 방식), 하이브리드를 비교하고, 상품 설계 탭은 영역 수요·조합·예상 혜택비용을 계산합니다.</p>
+  </header>
+
+  <section class="flow" aria-label="작동 순서">
+    <div><b>1 입력</b>상위 3개 영역 순위, 지출 구간, 몰아 쓸 수 있는 금액</div>
+    <div><b>2 관심 점수</b>신규는 설문·콘텐츠 기반, 이력이 쌓이면 Item-based CF 비중 증가</div>
+    <div><b>3 혜택 재정렬</b>관심 점수 × 지출 × 할인율, 영역별 한도 적용</div>
+    <div><b>4 피드백</b>수락·제외가 로그로 쌓여 다음 학습 데이터가 됨</div>
+  </section>
+
+  <div class="grid">
+    <form class="panel" id="f" aria-label="사용자 입력">
+      <span class="sample">예시 입력 · 직접 바꿔 보세요</span>
+      <div class="field">
+        <span class="lab">원하는 혜택 영역 (순위)</span>
+        <div class="rankrow"><span>1</span><select id="r1"></select><select id="s1"></select></div>
+        <div class="rankrow"><span>2</span><select id="r2"></select><select id="s2"></select></div>
+        <div class="rankrow"><span>3</span><select id="r3"></select><select id="s3"></select></div>
+        <p class="note">오른쪽은 그 영역의 월 지출 구간입니다. 금액은 구간으로만 받습니다.</p>
+      </div>
+      <div class="field">
+        <label for="pool">이 카드에 몰아 쓸 수 있는 월 금액</label>
+        <select id="pool"></select>
+        <p class="note">가상 상품의 전월실적 기준은 40만원으로 가정합니다.</p>
+      </div>
+      <div class="field">
+        <span class="lab">고를 수 있는 영역 수 (K)</span>
+        <div class="seg" id="kseg"></div>
+      </div>
+      <div class="field">
+        <span class="lab">이용 이력</span>
+        <div class="seg" id="hseg"></div>
+        <p class="note" id="hnote"></p>
+      </div>
+      <div class="field">
+        <span class="lab">할인율 시나리오</span>
+        <div class="seg" id="rseg"></div>
+        <p class="note">균등은 모든 영역 5%로 두어 순수한 관심만 봅니다. 차등은 영역별 할인율과 월 한도를 가정합니다.</p>
+      </div>
+      <div class="field">
+        <span class="lab">정렬 기준</span>
+        <div class="seg" id="oseg"></div>
+      </div>
+    </form>
+
+    <section class="panel" aria-label="추천 결과">
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <div class="status" id="status"></div>
+      <div id="cust" class="slots">
+      <div class="slots" id="slots"></div>
+      <div class="sum" id="sum"></div>
+      <div>
+        <h2>피드백 로그</h2>
+        <p class="note">수락·제외를 누르면 아래에 행이 쌓입니다. 서비스에서는 이 로그가 암묵적·명시적 피드백 데이터가 됩니다.</p>
+        <div class="logwrap"><table><thead><tr><th>#</th><th>영역</th><th>행동</th><th>추천 방식</th><th>순위</th><th>이력</th></tr></thead><tbody id="log"></tbody></table></div>
+        <div class="empty" id="logEmpty">아직 기록이 없습니다. 추천 목록에서 수락이나 제외를 눌러 보세요.</div>
+      </div>
+      </div>
+      <div id="design" class="slots" hidden>
+        <p class="note">합성 고객 400명 각자에게 「소비 상위 3개 영역」을 설문 응답 대신 넣어 신규 고객 추천(β = 0)을 돌리고, 결과를 모아 상품 설계 입력값으로 바꿉니다. 왼쪽의 K와 할인율 시나리오가 그대로 적용됩니다.</p>
+        <div class="dgrid"><div class="field"><label for="fee">가맹점 수수료율 (가정)</label><select id="fee"><option value="0.005">0.5%</option><option value="0.01" selected>1.0%</option><option value="0.015">1.5%</option><option value="0.02">2.0%</option></select></div><div class="field"><label for="share">이 카드로 결제하는 비중 (가정)</label><select id="share"><option value="0.3">30%</option><option value="0.5" selected>50%</option><option value="0.7">70%</option><option value="1">100%</option></select></div></div><p class="note">고객은 여러 카드를 나눠 쓰므로 소비 전체가 이 카드로 오지 않습니다. 결제 비중이 낮으면 실적 미달 고객이 늘어 혜택비용과 수익이 함께 줄어듭니다.</p>
+        <div class="dgrid">
+          <div><h2>영역별 수요</h2><p class="note">추천 Top-K에 들어간 고객 비율, 상위 10개</p><div id="dDemand"></div></div>
+          <div><h2>자주 나오는 영역 조합</h2><p class="note">고객별 Top-K 조합, 상위 5개</p><div id="dCombo"></div></div>
+        </div>
+        <div><h2>상품안 수치화</h2><p class="note" id="dPlanNote"></p><div class="metrics" id="dMetrics"></div></div>
+        <p class="note">모든 금액은 합성 데이터와 가정값(할인율·한도·수수료율·결제 비중·실적 기준 40만 원·통합한도 2만 원)으로 계산한 예시이며 실제 수익성 심사 결과가 아닙니다.</p>
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    <span>데이터: 페이지 안에서 생성한 합성 사용자 400명 × 6개월 영역별 이용 기록(페르소나 6종 + 개인 노이즈). 실제 고객·회사 데이터는 쓰지 않았습니다.</span>
+    <span>분류 기준표 v1: 원더카드2.0 서비스 영역 57개 중 결제 채널·범위 항목 5개를 속성으로 빼고, 같은 업종의 가맹점별 영역(백화점 3사, 통신 3사 등)을 묶어 업종 41개로 재구성. 할인율·한도·전월실적은 가정값입니다. 성능 수치는 합성 데이터의 생성 규칙을 되풀이할 뿐이라 표시하지 않습니다.</span>
+    <span>예상 혜택은 정보 제공용 추정치이며 특정 상품의 가입을 권유하지 않습니다.</span>
+  </footer>
+</div>
+
+<script>
+// ---------- 1. 분류 기준표 v0 (임시) ----------
+// [이름, 대분류, 이용성격(1=일상형,0=비정기형), 기본 로짓, 평균 월지출(만원), 차등 할인율, 차등 월한도(원)]
+const AREAS=[
+ ["음식점","식음료",1,1.3,12,0.05,6000],["딜리버리","식음료",1,0.0,8,0.10,6000],["패스트푸드","식음료",1,0.0,2,0.15,4000],
+ ["베이커리","식음료",1,0.0,2,0.15,4000],["커피","식음료",1,0.6,4,0.15,5000],
+ ["온라인종합몰","쇼핑",1,1.0,15,0.05,8000],["온라인식품","쇼핑",0,-0.3,8,0.07,5000],["온라인패션","쇼핑",0,-0.5,8,0.07,5000],
+ ["온라인명품","쇼핑",0,-2.0,40,0.03,8000],["홈쇼핑","쇼핑",0,-1.2,10,0.05,5000],["백화점","쇼핑",0,-0.7,20,0.03,8000],
+ ["아울렛","쇼핑",0,-1.0,15,0.03,6000],["SPA브랜드","쇼핑",0,-0.8,6,0.07,5000],
+ ["마트","장보기",1,0.8,15,0.03,6000],["슈퍼마켓","장보기",1,0.2,6,0.05,5000],["편의점","장보기",1,1.2,4,0.07,4000],
+ ["드럭스토어","장보기",0,-0.2,3,0.10,4000],
+ ["생활요금","생활서비스",1,1.0,10,0.03,4000],["통신요금","생활서비스",1,2.0,8,0.07,6000],["렌탈","생활서비스",1,-0.8,5,0.10,5000],
+ ["세탁","생활서비스",0,-1.5,2,0.15,3000],["인테리어","생활서비스",0,-2.2,30,0.03,8000],["병원·약국","생활서비스",0,-0.2,5,0.05,4000],
+ ["학원","생활서비스",0,-1.2,30,0.03,8000],["뷰티·펫","생활서비스",0,-1.0,6,0.07,5000],
+ ["대중교통","교통·차량",1,1.0,6,0.10,5000],["택시","교통·차량",0,-0.3,4,0.10,4000],["철도·고속버스","교통·차량",0,-1.3,5,0.07,4000],
+ ["주유·충전","교통·차량",0,-0.4,15,0.05,8000],["친환경 충전","교통·차량",0,-2.5,6,0.10,5000],["차량정비·주차","교통·차량",0,-1.2,5,0.07,4000],
+ ["카쉐어링","교통·차량",0,-2.3,4,0.10,4000],
+ ["스포츠센터","여가",0,-1.0,8,0.07,5000],["당구","여가",0,-2.3,2,0.20,3000],["골프","여가",0,-2.0,20,0.03,8000],
+ ["영화","여가",0,-0.8,3,0.20,5000],["웹툰·도서","여가",0,-0.8,2,0.20,3000],["디지털 구독","여가",1,0.6,2,0.20,4000],
+ ["숙박","여행",0,-1.3,25,0.05,8000],["항공권","여행",0,-2.0,40,0.03,10000],["면세점","여행",0,-2.4,20,0.03,8000]
+].map((a,i)=>({id:i,name:a[0],grp:a[1],daily:a[2],logit:a[3],spend:a[4],rate:a[5],cap:a[6]}));
+const N=AREAS.length, GROUPS=[...new Set(AREAS.map(a=>a.grp))];
+const idx=n=>AREAS.findIndex(a=>a.name===n);
+
+// ---------- 2. 합성 사용자 생성 (시드 고정 → 매번 같은 데이터) ----------
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const R=rng(670);
+const gauss=()=>{let u=0,v=0;while(!u)u=R();while(!v)v=R();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)};
+const sig=x=>1/(1+Math.exp(-x));
+const PERSONA=[ // 페르소나별로 소비가 늘어나는 영역(로짓 가산)
+ {"대중교통":1.2,"커피":1.0,"음식점":0.6,"편의점":0.6,"철도·고속버스":0.6},
+ {"마트":1.2,"학원":2.2,"병원·약국":1.2,"온라인식품":1.0,"렌탈":1.0},
+ {"온라인종합몰":1.4,"온라인패션":1.2,"온라인식품":0.8,"SPA브랜드":0.8,"홈쇼핑":0.6},
+ {"주유·충전":2.0,"차량정비·주차":1.6,"친환경 충전":1.0,"택시":-0.6,"대중교통":-1.0},
+ {"딜리버리":1.6,"편의점":1.0,"디지털 구독":1.0,"패스트푸드":0.8,"웹툰·도서":0.8},
+ {"숙박":2.0,"항공권":2.0,"면세점":1.6,"영화":1.0,"골프":1.2}
+];
+const USERS=400, MONTHS=6;
+const M=[]; // 사용자 × 영역 이용 개월 수 (0~6)
+for(let u=0;u<USERS;u++){
+  const p=PERSONA[Math.floor(R()*PERSONA.length)], row=new Array(N).fill(0);
+  const noise=AREAS.map(()=>gauss()*0.6);
+  for(let t=0;t<MONTHS;t++)for(let i=0;i<N;i++){
+    const z=AREAS[i].logit+(p[AREAS[i].name]||0)+noise[i];
+    if(R()<sig(z))row[i]++;
+  }
+  M.push(row);
+}
+// 인기 = 사용자·월 기준 이용 비율
+const POP=AREAS.map((_,i)=>M.reduce((s,r)=>s+r[i],0)/(USERS*MONTHS));
+// Item-based CF: 영역 열벡터(사용자별 이용 개월 수) 간 코사인 유사도
+const SIM=AREAS.map((_,i)=>AREAS.map((_,j)=>{let d=0,a=0,b=0;for(const r of M){d+=r[i]*r[j];a+=r[i]*r[i];b+=r[j]*r[j]}return d/Math.sqrt(a*b||1)}));
+
+// ---------- 3. 화면 상태 ----------
+const BUCKETS=[["1만원 미만",0.5],["1~5만원",3],["5~10만원",7.5],["10~30만원",20],["30만원 이상",40]];
+const POOLS=[20,30,40,60,80,100];
+const S={tab:"hyb",k:4,hist:0,rate:"flat",order:"score",excl:new Set(),taken:new Set(),log:[]};
+const $=id=>document.getElementById(id);
+
+function fillSelects(){
+  [["r1","온라인종합몰"],["r2","딜리버리"],["r3","커피"]].forEach(([id,def])=>{
+    $(id).innerHTML=AREAS.map(a=>`<option value="${a.id}">${a.name}</option>`).join("");$(id).value=idx(def);
+  });
+  [["s1",3],["s2",2],["s3",1]].forEach(([id,def])=>{
+    $(id).innerHTML=BUCKETS.map((b,i)=>`<option value="${i}">${b[0]}</option>`).join("");$(id).value=def;
+  });
+  $("pool").innerHTML=POOLS.map(v=>`<option value="${v}">${v}만원</option>`).join("");$("pool").value=60;
+}
+function seg(id,key,opts){
+  $(id).innerHTML=opts.map(([v,l])=>`<button type="button" data-v="${v}" aria-pressed="${String(S[key])===String(v)}">${l}</button>`).join("");
+  $(id).onclick=e=>{const b=e.target.closest("button");if(!b)return;const v=b.dataset.v;S[key]=isNaN(+v)?v:+v;seg(id,key,opts);render()};
+}
+const TABS=[["pop","인기 기반"],["rule","규칙 기반 (비교 플랫폼 방식)"],["hyb","하이브리드"],["design","상품 설계 (카드사)"]];
+function tabs(){
+  $("tabs").innerHTML=TABS.map(([v,l])=>`<button type="button" role="tab" class="tab" data-v="${v}" aria-selected="${S.tab===v}">${l}</button>`).join("");
+  $("tabs").onclick=e=>{const b=e.target.closest("button");if(!b)return;S.tab=b.dataset.v;tabs();render()};
+}
+
+// ---------- 4. 점수 계산 ----------
+function readInput(){
+  const sel=["r1","r2","r3"].map(id=>+$(id).value), sp=["s1","s2","s3"].map(id=>BUCKETS[+$(id).value][1]);
+  return {sel,sp,pool:+$("pool").value};
+}
+const norm=v=>{const mx=Math.max(...v),mn=Math.min(...v);return v.map(x=>mx>mn?(x-mn)/(mx-mn):0)};
+function feat(a){const f=GROUPS.map(g=>a.grp===g?1:0);f.push(a.daily*0.5);return f}
+const cos=(x,y)=>{let d=0,a=0,b=0;x.forEach((v,i)=>{d+=v*y[i];a+=v*v;b+=y[i]*y[i]});return d/Math.sqrt(a*b||1)};
+
+function scores(inp){
+  const W=[1,2/3,1/3], selW=new Array(N).fill(0);
+  inp.sel.forEach((id,r)=>{selW[id]=Math.max(selW[id],W[r])});
+  // 신규 사용자 이력 시뮬레이션: 설문 순위만큼 로짓 가산 (입력이 같으면 결과도 같도록 입력값으로 시드)
+  const hr=rng(inp.sel[0]*400+inp.sel[1]*20+inp.sel[2]+7), hist=new Array(N).fill(0);
+  if(S.hist>0){for(let t=0;t<S.hist;t++)for(let i=0;i<N;i++){const z=AREAS[i].logit+selW[i]*2.4;if(hr()<sig(z))hist[i]++}}
+  const h=hist.map(x=>x/(S.hist||1));
+  // 콘텐츠 기반: 선택 영역 특징의 가중 평균 = 사용자 프로필
+  const prof=new Array(GROUPS.length+1).fill(0);
+  AREAS.forEach((a,i)=>{if(selW[i]>0)feat(a).forEach((v,j)=>prof[j]+=v*selW[i])});
+  const content=AREAS.map(a=>cos(prof,feat(a)));
+  const pop=norm(POP);
+  const cold=norm(AREAS.map((_,i)=>0.6*selW[i]+0.3*content[i]+0.1*pop[i]));
+  // Item-based CF: 이력 h에 대한 유사도 가중 평균 (자기 자신 포함)
+  const cf=norm(AREAS.map((_,i)=>{let s=0,w=0;for(let j=0;j<N;j++){s+=SIM[i][j]*h[j];w+=SIM[i][j]}return s/(w||1)}));
+  const beta=S.hist/(S.hist+2);
+  const out={pop:{},rule:{},hyb:{}};
+  AREAS.forEach((a,i)=>{
+    out.pop[i]={s:pop[i],why:`전체 사용자 월 이용률 ${(POP[i]*100).toFixed(0)}%`};
+    out.rule[i]={s:selW[i]>0?0.5+0.5*selW[i]:0.4*pop[i],why:selW[i]>0?`체크한 혜택 (${inp.sel.indexOf(i)+1}순위)`:"체크 외 · 인기 순으로 채움"};
+    let why;
+    const sv=selW[i]>0?`설문 ${inp.sel.indexOf(i)+1}순위`:"";
+    if(beta>0&&hist[i]>0)why=`최근 ${S.hist}개월 중 ${hist[i]}개월 이용`+(sv?` · ${sv}`:"");
+    else if(beta>0&&sv)why=`${sv} · 최근 이력 없음`;
+    else if(beta>0){let bj=-1,bv=0;for(let j=0;j<N;j++)if(j!==i&&h[j]>0&&SIM[i][j]*h[j]>bv){bv=SIM[i][j]*h[j];bj=j}
+      why=bj>=0?`이용 중인 '${AREAS[bj].name}'과 함께 쓰는 사용자가 많음 (유사도 ${SIM[i][bj].toFixed(2)})`:"이력 기반 신호 약함";}
+    else if(selW[i]>0)why=`설문 ${inp.sel.indexOf(i)+1}순위`;
+    else why=content[i]>0.5?`선택 영역과 같은 '${a.grp}' 대분류`:"인기 보정";
+    out.hyb[i]={s:(1-beta)*cold[i]+beta*cf[i],why};
+  });
+  return {out,beta,hist};
+}
+function benefit(i,score,inp){
+  const a=AREAS[i], r=inp.sel.indexOf(i);
+  const spend=(r>=0?inp.sp[r]:a.spend)*10000;
+  const rate=S.rate==="flat"?0.05:a.rate, cap=S.rate==="flat"?Infinity:a.cap;
+  return Math.min(score*spend*rate,cap);
+}
+
+// ---------- 5. 렌더링 ----------
+const won=v=>Math.round(v/10)*10;
+function coldTop(sel,k){ // 신규 고객 추천(β=0): scores()의 cold 점수와 같은 식
+  const W=[1,2/3,1/3], selW=new Array(N).fill(0); sel.forEach((id,r)=>{selW[id]=Math.max(selW[id],W[r])});
+  const prof=new Array(GROUPS.length+1).fill(0); AREAS.forEach((a,i)=>{if(selW[i]>0)feat(a).forEach((v,j)=>prof[j]+=v*selW[i])});
+  const pop=norm(POP), sc=AREAS.map((a,i)=>0.6*selW[i]+0.3*cos(prof,feat(a))+0.1*pop[i]);
+  return AREAS.map(a=>a.id).sort((x,y)=>sc[y]-sc[x]).slice(0,k);
+}
+function renderDesign(){
+  const k=S.k, fee=+$("fee").value, share=+$("share").value, dem=new Array(N).fill(0), combos={};
+  M.forEach(row=>{
+    const top3=AREAS.map(a=>a.id).sort((x,y)=>row[y]-row[x]||AREAS[y].logit-AREAS[x].logit).slice(0,3);
+    const rec=coldTop(top3,k); rec.forEach(i=>dem[i]++);
+    const key=[...rec].sort((a,b)=>a-b).join(","); combos[key]=(combos[key]||0)+1;
+  });
+  const order=AREAS.map(a=>a.id).sort((x,y)=>dem[y]-dem[x]);
+  $("dDemand").innerHTML=order.slice(0,10).map(i=>`<div class="drow"><span>${AREAS[i].name}</span><div class="bar"><i style="width:${(dem[i]/USERS*100).toFixed(0)}%"></i></div><b>${(dem[i]/USERS*100).toFixed(0)}%</b></div>`).join("");
+  $("dCombo").innerHTML=Object.entries(combos).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([key,c])=>`<div class="drow"><span>${key.split(",").map(i=>AREAS[+i].name).join(" · ")}</span><b>${c}명</b></div>`).join("");
+  // 상품안 = 수요 상위 K개 영역. 고객별 월 이용액 = Σ 평균지출 × (이용 개월/6)
+  const plan=order.slice(0,k); let ok=0, cost=0, spendSum=0;
+  M.forEach(row=>{
+    const spend=share*AREAS.reduce((s,a,i)=>s+a.spend*10000*row[i]/MONTHS,0); spendSum+=spend;
+    if(spend<400000)return; ok++;
+    const b=plan.reduce((s,i)=>{const a=AREAS[i],r=S.rate==="flat"?0.05:a.rate,cap=S.rate==="flat"?Infinity:a.cap;return s+Math.min(share*a.spend*10000*row[i]/MONTHS*r,cap)},0);
+    cost+=Math.min(b,20000);
+  });
+  const avgSpend=spendSum/USERS, avgCost=cost/USERS, rev=avgSpend*fee;
+  $("dPlanNote").textContent=`상품안: 수요 상위 ${k}개 영역 (${plan.map(i=>AREAS[i].name).join(", ")}) · ${S.rate==="flat"?"할인율 균등 5%":"할인율 차등"}`;
+  const m=[["실적 충족 고객",`${(ok/USERS*100).toFixed(0)}%`],["고객당 월 이용액",`${won(avgSpend).toLocaleString()}원`],["고객당 월 예상 혜택비용",`${won(avgCost).toLocaleString()}원`],["고객당 월 수수료수익 (가정)",`${won(rev).toLocaleString()}원`],["수익 − 혜택비용 (가정)",`${won(rev-avgCost).toLocaleString()}원`]];
+  $("dMetrics").innerHTML=m.map(([l,v])=>`<div><small>${l}</small><b>${v}</b></div>`).join("");
+}
+function render(){
+  const design=S.tab==="design"; $("cust").hidden=design; $("design").hidden=!design;
+  if(design){$("status").innerHTML=`<span class="pill">상품 설계 (카드사)</span><span class="pill">K = ${S.k}</span><span class="pill">${S.rate==="flat"?"할인율 균등 5%":"할인율 차등"}</span>`;renderDesign();return}
+  const inp=readInput(), {out,beta}=scores(inp), sc=out[S.tab];
+  $("hnote").textContent=S.hist?`β = ${beta.toFixed(2)} · 이력 ${S.hist}개월이 쌓여 협업 필터링 비중이 커졌습니다.`:"β = 0 · 이력이 없어 설문과 콘텐츠 기반으로만 추천합니다.";
+  const short=inp.pool<40, label=TABS.find(t=>t[0]===S.tab)[1];
+  let rows=AREAS.map(a=>({i:a.id,s:sc[a.id].s,why:sc[a.id].why,b:short?0:benefit(a.id,sc[a.id].s,inp)})).filter(x=>!S.excl.has(x.i));
+  rows.sort((x,y)=>S.order==="score"?y.s-x.s:y.b-x.b);
+  rows=rows.slice(0,S.k);
+  
+  $("status").innerHTML=`<span class="pill">${label}</span><span class="pill">K = ${S.k}</span><span class="pill">${S.rate==="flat"?"할인율 균등 5%":"할인율 차등"}</span>`+
+    (S.excl.size?`<button type="button" class="tab" id="reset">제외 ${S.excl.size}개 되돌리기</button>`:"")+(short?`<span class="pill warn">몰아 쓸 금액 ${inp.pool}만원 &lt; 실적 기준 40만원 · 혜택 0원 가능</span>`:`<span class="pill ok">실적 기준 충족 가능</span>`);
+  $("slots").innerHTML=rows.map((x,n)=>`<div class="slot${S.taken.has(x.i)?" taken":""}">
+    <div class="no">${n+1}</div>
+    <div style="min-width:0"><div class="nm">${AREAS[x.i].name}<span class="grp">${AREAS[x.i].grp}</span></div>
+      <div class="why">${x.why}</div><div class="bar"><i style="width:${(x.s*100).toFixed(0)}%"></i></div></div>
+    <div class="won">${short?"0원":won(x.b).toLocaleString()+"원"}<small>예상 월 혜택 (추정)</small></div>
+    <div class="act"><button type="button" class="yes" data-a="수락" data-i="${x.i}" data-r="${n+1}">수락</button><button type="button" class="no" data-a="제외" data-i="${x.i}" data-r="${n+1}">제외</button></div>
+  </div>`).join("");
+  const tot=rows.reduce((s,x)=>s+x.b,0), capT=20000;
+  $("sum").innerHTML=`<span>Top-${S.k} 예상 월 혜택 합계 (통합한도 2만원 가정)</span><b>${short?"0원":won(Math.min(tot,capT)).toLocaleString()+"원"}</b>`;
+  renderLog();
+}
+function renderLog(){
+  $("log").innerHTML=S.log.map((r,n)=>`<tr><td class="m">${n+1}</td><td>${r.area}</td><td>${r.act}</td><td>${r.m}</td><td class="m">${r.rank}</td><td class="m">${r.h}개월</td></tr>`).join("");
+  $("logEmpty").hidden=S.log.length>0;
+}
+$("status").onclick=e=>{if(e.target.id==="reset"){S.excl.clear();render()}};
+$("slots").onclick=e=>{
+  const b=e.target.closest("button");if(!b)return;const i=+b.dataset.i;
+  if(b.dataset.a==="수락"&&S.taken.has(i))return;
+  if(b.dataset.a==="수락")S.taken.add(i);else{S.excl.add(i);S.taken.delete(i)}
+  S.log.push({area:AREAS[i].name,act:b.dataset.a,m:TABS.find(t=>t[0]===S.tab)[1],rank:b.dataset.r,h:S.hist});
+  render();
+};
+$("f").addEventListener("change",render);
+$("fee").addEventListener("change",render);
+$("share").addEventListener("change",render);
+$("f").addEventListener("submit",e=>e.preventDefault());
+
+fillSelects();tabs();
+seg("kseg","k",[[3,"3개"],[4,"4개"],[5,"5개"]]);
+seg("hseg","hist",[[0,"신규 (이력 없음)"],[3,"3개월 이용"]]);
+seg("rseg","rate",[["flat","균등"],["diff","차등"]]);
+seg("oseg","order",[["score","관심 점수"],["benefit","예상 혜택"]]);
+render();
+</script>
