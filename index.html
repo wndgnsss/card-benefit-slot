@@ -1,4 +1,4 @@
-<title>혜택 슬롯 추천기</title>
+<title>카드 혜택 추천기</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -84,6 +84,24 @@ td.m{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
 .metrics small{display:block;font-size:.74rem;color:var(--muted)}
 .metrics b{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:1.02rem}
 @media (max-width:560px){.dgrid{grid-template-columns:1fr}}
+.modebar{max-width:300px;margin-top:12px}
+.cust{display:flex;flex-direction:column;gap:16px}
+.q{display:flex;flex-direction:column;gap:6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:inherit;font-size:.86rem;padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.chip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:700}
+.agroups{display:flex;flex-direction:column;gap:10px}
+.agroups .gl{font-size:.74rem;color:var(--muted);font-family:var(--f-mono)}
+.details{display:flex;flex-direction:column;gap:6px}
+.drow2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,110px) minmax(0,110px) minmax(0,92px);gap:8px;align-items:center;font-size:.86rem;padding:6px 0;border-top:1px solid var(--line)}
+.drow2 b{font-family:var(--f-mono);text-align:right;font-weight:500}
+.calc{font-size:.8rem;color:var(--muted);font-family:var(--f-mono);margin-top:2px;overflow-wrap:anywhere}
+.tag{font-size:.7rem;padding:1px 7px;border-radius:999px;background:var(--gold-soft);color:var(--gold);margin-left:6px;font-weight:400}
+.cnotes{display:flex;flex-direction:column;gap:6px;font-size:.82rem}
+.cnotes p{margin:0;padding:8px 12px;border-radius:6px;background:var(--bg);border:1px solid var(--line)}
+.cslot{grid-template-columns:36px minmax(0,1fr) 120px}
+.sug{grid-template-columns:minmax(0,1fr) auto}
+@media (max-width:560px){.drow2{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.drow2 b{grid-column:1/-1;text-align:left}.cslot{grid-template-columns:28px minmax(0,1fr)}.cslot .won{grid-column:2;text-align:left}}
 footer{font-size:.76rem;color:var(--muted);border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:4px}
 @media (max-width:860px){.grid{grid-template-columns:1fr}.flow{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:560px){.slot{grid-template-columns:28px minmax(0,1fr);row-gap:8px}.slot .won{grid-column:2;text-align:left}.slot .act{grid-column:2;justify-content:flex-start}}
@@ -93,8 +111,40 @@ footer{font-size:.76rem;color:var(--muted);border-top:1px solid var(--line);padd
 <div class="wrap">
   <header>
     <div class="eyebrow">BAF670 중간보고서 · 기획 프로토타입</div>
-    <h1>혜택 슬롯 추천기</h1>
-    <p class="lede">고객에게는 소비 행태에 맞는 혜택 영역 K개를 추천하고, 카드사에는 그 추천을 모아 상품 설계의 입력값으로 보여 줍니다. 고객 쪽은 인기 기반, 규칙 기반(카드 비교 플랫폼의 카테고리 필터 방식), 하이브리드를 비교하고, 상품 설계 탭은 영역 수요·조합·예상 혜택비용을 계산합니다.</p>
+    <h1>나에게 필요한 카드 혜택</h1>
+    <p class="lede" id="ledeCust">평소 카드 쓰는 습관을 버튼으로 고르면, 필요한 혜택 영역 5개와 예상 혜택이 어떻게 계산됐는지 보여 드립니다.</p>
+    <div class="seg modebar" id="mode"><button type="button" data-m="cust" aria-pressed="true">고객 화면</button><button type="button" data-m="admin" aria-pressed="false">관리자 화면</button></div>
+  </header>
+
+  <div id="custApp" class="cust">
+    <section class="panel">
+      <h2>1. 나의 카드 이용</h2>
+      <div class="q"><span class="lab">주로 쓰는 결제 수단</span><div class="chips" id="qPay"></div></div>
+      <div class="q"><span class="lab">한 달 카드 사용액</span><div class="chips" id="qMonth"></div></div>
+      <div class="q"><span class="lab">좋아하는 혜택 형태 (여러 개 선택)</span><div class="chips" id="qType"></div></div>
+      <div class="q"><span class="lab">1년 해외여행 횟수</span><div class="chips" id="qTrip"></div></div>
+      <div class="q"><span class="lab">감당할 수 있는 연회비</span><div class="chips" id="qFee"></div></div>
+    </section>
+    <section class="panel">
+      <h2>2. 자주 쓰는 곳</h2>
+      <p class="note">누르면 아래에서 한 달 이용 횟수와 1회 금액을 고를 수 있습니다. <span class="sample">예시로 몇 곳을 미리 골라 두었습니다</span></p>
+      <div id="qAreas" class="agroups"></div>
+      <div id="qDetail" class="details"></div>
+    </section>
+    <section class="panel">
+      <h2>3. 추천 혜택 Top 5</h2>
+      <div class="status" id="cStatus"></div>
+      <div class="slots" id="cList"></div>
+      <div class="sum" id="cSum"></div>
+      <div id="cSug" class="details"></div>
+      <div id="cAddon" class="details"></div>
+      <div id="cNotes" class="cnotes"></div>
+    </section>
+  </div>
+
+  <div id="adminApp" hidden>
+  <header>
+    <p class="lede">관리자 화면: 고객에게는 소비 행태에 맞는 혜택 영역 K개를 추천하고, 카드사에는 그 추천을 모아 상품 설계의 입력값으로 보여 줍니다. 고객 쪽은 인기 기반, 규칙 기반(카드 비교 플랫폼의 카테고리 필터 방식), 하이브리드를 비교하고, 상품 설계 탭은 영역 수요·조합·예상 혜택비용을 계산합니다.</p>
   </header>
 
   <section class="flow" aria-label="작동 순서">
@@ -165,9 +215,11 @@ footer{font-size:.76rem;color:var(--muted);border-top:1px solid var(--line);padd
     </section>
   </div>
 
+  </div>
+
   <footer>
     <span>데이터: 페이지 안에서 생성한 합성 사용자 400명 × 6개월 영역별 이용 기록(페르소나 6종 + 개인 노이즈). 실제 고객·회사 데이터는 쓰지 않았습니다.</span>
-    <span>분류 기준표 v1: 원더카드2.0 서비스 영역 57개 중 결제 채널·범위 항목 5개를 속성으로 빼고, 같은 업종의 가맹점별 영역(백화점 3사, 통신 3사 등)을 묶어 업종 41개로 재구성. 할인율·한도·전월실적은 가정값입니다. 성능 수치는 합성 데이터의 생성 규칙을 되풀이할 뿐이라 표시하지 않습니다.</span>
+    <span>분류 기준표 v1: 원더카드 2.0 서비스 영역 57개 중 결제 채널·범위 항목 5개를 속성으로 빼고, 같은 업종의 가맹점별 영역(백화점 3사, 통신 3사 등)을 묶어 업종 41개로 재구성. 항공 마일리지·공항 라운지·프리미엄은 부가서비스 3개로 별도 판단. 할인율·한도·전월실적은 가정값입니다. 성능 수치는 합성 데이터의 생성 규칙을 되풀이할 뿐이라 표시하지 않습니다.</span>
     <span>예상 혜택은 정보 제공용 추정치이며 특정 상품의 가입을 권유하지 않습니다.</span>
   </footer>
 </div>
@@ -228,7 +280,7 @@ const SIM=AREAS.map((_,i)=>AREAS.map((_,j)=>{let d=0,a=0,b=0;for(const r of M){d
 // ---------- 3. 화면 상태 ----------
 const BUCKETS=[["1만원 미만",0.5],["1~5만원",3],["5~10만원",7.5],["10~30만원",20],["30만원 이상",40]];
 const POOLS=[20,30,40,60,80,100];
-const S={tab:"hyb",k:4,hist:0,rate:"flat",order:"score",excl:new Set(),taken:new Set(),log:[]};
+const S={tab:"hyb",k:5,hist:0,rate:"flat",order:"score",excl:new Set(),taken:new Set(),log:[]};
 const $=id=>document.getElementById(id);
 
 function fillSelects(){
@@ -369,6 +421,67 @@ $("fee").addEventListener("change",render);
 $("share").addEventListener("change",render);
 $("f").addEventListener("submit",e=>e.preventDefault());
 
+// ---------- 고객 화면 ----------
+const PAY=[["credit","신용카드 위주",0.9],["half","신용·체크 반반",0.5],["check","체크카드 위주",0.2]];
+const MONTH=[30,50,100,150,200];
+const TYPES=["할인","포인트 적립","간편결제","항공 마일리지"];
+const FREQ=[1,2,4,8,15,30], AMT=[[0.2,"2천 원"],[0.5,"5천 원"],[1,"1만 원"],[3,"3만 원"],[5,"5만 원"],[10,"10만 원"]];
+const TRIP=[[0,"없음"],[2,"1~2회"],[4,"3~5회"],[6,"6회 이상"]], FEEOPT=[[1,"1만 원 이하"],[3,"3만 원"],[10,"10만 원"],[30,"30만 원 이상"]];
+const C={trip:2,fee:3,pay:"credit",month:100,types:new Set(["할인"]),areas:new Map([[idx("편의점"),{f:8,a:0.5}],[idx("커피"),{f:15,a:0.5}],[idx("온라인종합몰"),{f:4,a:3}],[idx("대중교통"),{f:30,a:0.2}],[idx("음식점"),{f:8,a:1}]])};
+const manTxt=v=>v<1?`${v*10}천 원`:`${v}만 원`;
+function chips(id,opts,isOn,onTap){$(id).innerHTML=opts.map(([v,l])=>`<button type="button" class="chip" data-v="${v}" aria-pressed="${isOn(v)}">${l}</button>`).join("");$(id).onclick=e=>{const b=e.target.closest("button");if(b){onTap(b.dataset.v);renderCust()}}}
+function renderCust(){
+  chips("qPay",PAY.map(p=>[p[0],p[1]]),v=>C.pay===v,v=>C.pay=v);
+  chips("qMonth",MONTH.map(m=>[m,m>=200?"200만 원 이상":`${m}만 원`]),v=>C.month===+v,v=>C.month=+v);
+  chips("qType",TYPES.map(t=>[t,t]),v=>C.types.has(v),v=>C.types.has(v)?C.types.delete(v):C.types.add(v));
+  chips("qTrip",TRIP,v=>C.trip===+v,v=>C.trip=+v);
+  chips("qFee",FEEOPT,v=>C.fee===+v,v=>C.fee=+v);
+  $("qAreas").innerHTML=GROUPS.map(g=>`<div><div class="gl">${g}</div><div class="chips">${AREAS.filter(a=>a.grp===g).map(a=>`<button type="button" class="chip" data-i="${a.id}" aria-pressed="${C.areas.has(a.id)}">${a.name}</button>`).join("")}</div></div>`).join("");
+  $("qAreas").onclick=e=>{const b=e.target.closest("button");if(!b)return;const i=+b.dataset.i;C.areas.has(i)?C.areas.delete(i):C.areas.set(i,{f:4,a:1});renderCust()};
+  $("qDetail").innerHTML=[...C.areas].map(([i,v])=>`<div class="drow2"><span>${AREAS[i].name}</span>
+    <select data-i="${i}" data-k="f" aria-label="${AREAS[i].name} 월 이용 횟수">${FREQ.map(f=>`<option value="${f}"${f===v.f?" selected":""}>월 ${f}회</option>`).join("")}</select>
+    <select data-i="${i}" data-k="a" aria-label="${AREAS[i].name} 1회 금액">${AMT.map(([x,l])=>`<option value="${x}"${x===v.a?" selected":""}>1회 ${l}</option>`).join("")}</select>
+    <b>월 ${Math.round(v.f*v.a*10000).toLocaleString()}원</b></div>`).join("")||`<p class="note">아직 고른 곳이 없습니다.</p>`;
+  $("qDetail").onchange=e=>{const t=e.target;if(!t.dataset.i)return;C.areas.get(+t.dataset.i)[t.dataset.k]=+t.value;renderCust()};
+  // 추천 계산: 고른 곳은 입력한 횟수·금액으로 혜택을 계산하고, 안 고른 곳은 Item-based CF로 「함께 쓸 가능성」을 매긴다
+  const word=C.types.has("할인")||!C.types.has("포인트 적립")?"할인":"적립";
+  const sel=[...C.areas], tot=sel.reduce((s,[i,v])=>s+v.f*v.a,0)||1, h=new Array(N).fill(0);
+  sel.forEach(([i,v])=>h[i]=v.f*v.a/tot);
+  const mineRows=sel.map(([i,v])=>{const a=AREAS[i], sp=v.f*v.a*10000, raw=sp*a.rate, b=Math.min(raw,a.cap);
+    return {i,b,mine:true,calc:`월 ${v.f}회 × 1회 ${manTxt(v.a)} = 월 ${won(sp).toLocaleString()}원 × ${word} ${(a.rate*100).toFixed(0)}% = ${won(raw).toLocaleString()}원`+(raw>a.cap?` → 월 한도 ${a.cap.toLocaleString()}원 적용`:""),why:"직접 고른 곳"}}).sort((x,y)=>y.b-x.b);
+  const cand=AREAS.filter(a=>!C.areas.has(a.id)).map(a=>{const i=a.id;let cf=0,bj=-1,bv=0;
+    for(let j=0;j<N;j++)if(h[j]>0){cf+=SIM[i][j]*h[j];if(SIM[i][j]*h[j]>bv){bv=SIM[i][j]*h[j];bj=j}}
+    let nj=0,both=0;if(bj>=0)M.forEach(r=>{if(r[bj]>0){nj++;if(r[i]>0)both++}});
+    return {i,cf,why:bj>=0?`'${AREAS[bj].name}'을 쓰는 고객의 ${Math.round(both/(nj||1)*100)}%가 이곳도 이용`:"이용 고객이 많은 곳"}}).sort((x,y)=>y.cf-x.cf);
+  const rows=mineRows.slice(0,5);
+  cand.slice(0,5-rows.length).forEach(c=>rows.push({i:c.i,b:0,mine:false,why:c.why,calc:"자주 쓰는 곳에 추가하고 횟수·금액을 고르면 예상 혜택을 계산합니다"}));
+  const sug=cand.filter(c=>!rows.some(r=>r.i===c.i)).slice(0,3);
+  const share=PAY.find(p=>p[0]===C.pay)[2], cardSpend=C.month*share, short=cardSpend<40;
+  $("cStatus").innerHTML=`<span class="pill">${PAY.find(p=>p[0]===C.pay)[1]}</span><span class="pill">월 ${C.month}만 원</span>`+(short?`<span class="pill warn">이 카드 결제 약 ${Math.round(cardSpend)}만 원 · 실적 기준 40만 원 미달 가능</span>`:`<span class="pill ok">이 카드 결제 약 ${Math.round(cardSpend)}만 원 · 실적 기준 충족</span>`);
+  $("cList").innerHTML=rows.map((r,n)=>`<div class="slot cslot"><div class="no">${n+1}</div><div style="min-width:0"><div class="nm">${AREAS[r.i].name}${r.mine?"":`<span class="tag">추천</span>`}<span class="grp">${AREAS[r.i].grp}</span></div><div class="why">${r.why}</div><div class="calc">${r.calc}</div></div><div class="won">${won(r.b).toLocaleString()}원<small>예상 월 ${word}</small></div></div>`).join("");
+  $("cSug").innerHTML=sug.length?`<h2 style="font-size:.95rem">함께 고려해 볼 곳</h2>`+sug.map(c=>`<div class="drow2 sug"><span><b style="font-family:inherit;font-weight:700">${AREAS[c.i].name}</b> <span class="note">${c.why}</span></span><button type="button" class="chip" data-i="${c.i}">자주 쓰는 곳에 추가</button></div>`).join(""):"";
+  $("cSug").onclick=e=>{const b=e.target.closest("button");if(!b)return;C.areas.set(+b.dataset.i,{f:2,a:1});renderCust()};
+  const sum=rows.reduce((s,r)=>s+r.b,0);
+  $("cSum").innerHTML=`<span>5개 영역 예상 월 ${word} 합계 ${sum>20000?`(합계 ${won(sum).toLocaleString()}원 → 통합한도 2만 원 적용)`:""}</span><b>${short?"실적 미달 시 0원":won(Math.min(sum,20000)).toLocaleString()+"원"}</b>`;
+  const notes=[];
+  if(sel.reduce((s,[i,v])=>s+v.f*v.a,0)>C.month)notes.push(`고른 곳의 합계(월 ${Math.round(tot)}만 원)가 한 달 사용액보다 큽니다. 횟수나 금액을 확인해 주세요.`);
+  if(C.pay!=="credit")notes.push("체크카드를 함께 쓰면 이 카드로 오는 결제가 줄어 실적을 채우기 어려울 수 있습니다. 실적 조건이 낮은 혜택 구성이 유리할 수 있습니다.");
+  if(C.types.has("간편결제"))notes.push("간편결제는 업종이 아니라 결제 방식에 붙는 혜택이라 위 5개 영역과 별도로 더해집니다.");
+  notes.push("할인율·한도·실적 기준(40만 원)·통합한도(2만 원)는 가상 상품의 가정값입니다. 정보 제공용 추정이며 특정 상품 가입을 권유하지 않습니다.");
+  $("cNotes").innerHTML=notes.map(t=>`<p>${t}</p>`).join("");
+  // 부가서비스: 이용 빈도가 낮아 협업 신호가 약하므로(롱테일) 규칙 기반으로 판단
+  const air=C.areas.has(idx("항공권")), mile=C.types.has("항공 마일리지"), feeTxt=FEEOPT.find(f=>f[0]===C.fee)[1], tripTxt=TRIP.find(t=>t[0]===C.trip)[1];
+  const ADD=[
+    ["항공 마일리지",(C.trip>=2||mile||air)&&C.fee>=3,`해외여행 ${tripTxt}${mile?" · 마일리지 선호":""}${air?" · 항공권 이용":""} · 연회비 ${feeTxt}`,"해외여행이 연 1회 이상이거나 마일리지를 선호하고, 연회비 3만 원 이상 허용"],
+    ["공항 라운지",C.trip>=4&&C.fee>=10,`해외여행 ${tripTxt} · 연회비 ${feeTxt}`,"해외여행 연 3회 이상, 연회비 10만 원 이상 허용"],
+    ["프리미엄 서비스",C.fee>=30&&C.month>=150,`월 ${C.month}만 원 · 연회비 ${feeTxt}`,"월 사용액 150만 원 이상, 연회비 30만 원 이상 허용"]];
+  $("cAddon").innerHTML=`<h2 style="font-size:.95rem">부가서비스</h2><p class="note">업종이 아니라 혜택 형태라서 위 5개 영역과 따로 판단합니다. 이용 빈도가 낮아 다른 고객 패턴이 잘 쌓이지 않으므로 조건(규칙)으로 추천합니다.</p>`+
+    ADD.map(([n,ok,why,rule])=>`<div class="drow2 sug"><span><b style="font-family:inherit;font-weight:700">${n}</b> <span class="note">${ok?why:"조건: "+rule}</span></span><span class="pill ${ok?"ok":""}">${ok?"추천":"해당 없음"}</span></div>`).join("");
+}
+$("mode").onclick=e=>{const b=e.target.closest("button");if(!b)return;const adm=b.dataset.m==="admin";
+  $("custApp").hidden=adm;$("adminApp").hidden=!adm;$("ledeCust").hidden=adm;
+  [...$("mode").children].forEach(x=>x.setAttribute("aria-pressed",String(x===b)));};
+renderCust();
 fillSelects();tabs();
 seg("kseg","k",[[3,"3개"],[4,"4개"],[5,"5개"]]);
 seg("hseg","hist",[[0,"신규 (이력 없음)"],[3,"3개월 이용"]]);
